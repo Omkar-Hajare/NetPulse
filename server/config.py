@@ -1,0 +1,5 @@
+KAFKA_SERVER = "localhost:9092"
+TOPIC_NAME = "network-logs"
+MONGO_URI = "mongodb://localhost:27017/"
+DATABASE_NAME = "network_monitoring"
+COLLECTION_NAME = "network_logs"
