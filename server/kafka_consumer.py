@@ -1,37 +1,21 @@
 from kafka import KafkaConsumer
 from pymongo import MongoClient
-from datetime import datetime, timezone
 import json
-import config
 
-# =========================
-# CONNECT TO MONGODB
-# =========================
-client = MongoClient(config.MONGO_URI)
-db = client[config.DATABASE_NAME]
-collection = db[config.COLLECTION_NAME]
-
-# =========================
-# KAFKA CONSUMER
-# =========================
 consumer = KafkaConsumer(
-    config.TOPIC_NAME,
-    bootstrap_servers=config.KAFKA_SERVER,
+    "network-logs",
+    bootstrap_servers="localhost:9092",
     value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-    auto_offset_reset="latest",
-    enable_auto_commit=True
 )
+
+client = MongoClient("mongodb://localhost:27017/")
+db = client["netpulse"]
+collection = db["network_logs"]
 
 print("NetPulse Kafka Consumer Started...")
 
 for message in consumer:
-    try:
-        log_data = message.value
-        log_data["received_at"] = datetime.now(timezone.utc)
+    log = message.value
+    collection.insert_one(log)
 
-        collection.insert_one(log_data)
-
-        print(f"Stored log from {log_data['pc_id']}")
-
-    except Exception as e:
-        print("Consumer Error:", e)
+    print(f"Stored log from {log['pc_id']}")

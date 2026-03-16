@@ -1,2 +1,4 @@
 kafka-python
 pymongo
+scikit-learn
+prometheus_client
