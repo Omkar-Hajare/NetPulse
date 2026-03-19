@@ -2,3 +2,5 @@ kafka-python
 pymongo
 scikit-learn
 prometheus_client
+fastapi
+uvicorn[standard]

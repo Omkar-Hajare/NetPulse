@@ -1,4 +1,74 @@
+# ─── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
+*.py[cod]
+*$py.class
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+*.so
+
+# Python virtual environments
 venv/
+env/
+.venv/
+.env/
+ENV/
+
+# ─── Environment variables (NEVER commit secrets) ─────────────────────────────
 .env
+.env.local
+.env.*.local
+*.env
+
+# ─── NetPulse specific ────────────────────────────────────────────────────────
+# Firewall state file (machine-specific, regenerated on each run)
+agent/.firewall_state
+.firewall_state
+
+# Agent and server log files
+*.log
+logs/
+netpulse_agent.log
+netpulse_consumer.log
+netpulse_analyser.log
+
+# Saved ML models (large binary files — regenerate from training data)
+ml/models/*.pkl
+ml/models/*.joblib
+ml/models/*.h5
+
+# ─── Node / Frontend ──────────────────────────────────────────────────────────
+node_modules/
+dashboard/node_modules/
+
+# Vite build output
+dist/
+dashboard/dist/
+build/
+
+# Vite cache
+.vite/
+dashboard/.vite/
+
+# ─── IDEs and editors ─────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ─── OS files ─────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
