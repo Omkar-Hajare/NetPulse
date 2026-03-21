@@ -4,7 +4,7 @@ import {
   LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
-import { fetchPCHistory, generateDemoHistory } from '../api.js'
+import { fetchPCHistory, fetchFleetHistory, generateDemoHistory } from '../api.js'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -70,7 +70,10 @@ export default function Overview({ summaries, overviewKPIs, timeRange, selectedP
         if (res?.data) { setHistoryData(res.data); return }
         setHistoryData(generateDemoHistory(selectedPC, timeRange).data)
       } else {
-        // All PCs: show fleet-wide average (demo data, no single PC name)
+        // All PCs: fetch real fleet-wide aggregated data
+        const res = await fetchFleetHistory(timeRange)
+        if (res?.data) { setHistoryData(res.data); return }
+        // Fallback to demo if API unreachable
         setHistoryData(generateDemoHistory('fleet-avg', timeRange).data)
       }
     }

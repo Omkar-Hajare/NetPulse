@@ -534,6 +534,102 @@ def get_global_stats(range: str = Query("1h", regex="^(1h|6h|24h|7d)$")):
             "total_bytes_recv": 0, "total_alerts": 0, "total_blocked": 0, "doc_count": 0}
 
 
+# ─── Fleet-wide history (aggregated across all PCs) ───────────────────────────
+
+@app.get("/api/fleet/history")
+def get_fleet_history(
+    range: str = Query("1h", regex="^(1h|6h|24h|7d)$"),
+    limit: int = Query(100, ge=1, le=500),
+):
+    """
+    Aggregated time-series data across ALL PCs — used for the Overview chart
+    when 'All PCs' is selected. Returns averaged metrics bucketed by timestamp.
+    """
+    cutoff = time.time() - get_range_seconds(range)
+
+    if has_real_data():
+        # Determine a sensible bucket interval based on time range
+        range_sec = get_range_seconds(range)
+        bucket_secs = max(60, range_sec // limit)  # at least 60s buckets
+
+        pipeline = [
+            {"$match": {"timestamp": {"$gte": cutoff}}},
+            {"$group": {
+                "_id": {
+                    "$subtract": [
+                        "$timestamp",
+                        {"$mod": ["$timestamp", bucket_secs]},
+                    ]
+                },
+                "cpu_usage":       {"$avg": "$cpu_usage"},
+                "memory_usage":    {"$avg": "$memory_usage"},
+                "disk_usage":      {"$avg": "$disk_usage"},
+                "bytes_sent":      {"$avg": "$bytes_sent"},
+                "bytes_received":  {"$avg": "$bytes_received"},
+                "packets_sent":    {"$avg": "$packets_sent"},
+                "packets_received": {"$avg": "$packets_received"},
+                "total_connections": {"$avg": "$total_connections"},
+                "total_processes":  {"$avg": "$total_processes"},
+                "unique_remote_ips": {"$avg": "$unique_remote_ips"},
+                "pc_count":        {"$addToSet": "$pc_id"},
+            }},
+            {"$sort": {"_id": 1}},
+            {"$limit": limit},
+        ]
+        results = list(get_collection(LOGS_COLLECTION).aggregate(pipeline))
+        docs = []
+        for r in results:
+            docs.append({
+                "timestamp":        r["_id"],
+                "cpu_usage":        round(r["cpu_usage"] or 0, 1),
+                "memory_usage":     round(r["memory_usage"] or 0, 1),
+                "disk_usage":       round(r.get("disk_usage") or 0, 1),
+                "bytes_sent":       int(r["bytes_sent"] or 0),
+                "bytes_received":   int(r["bytes_received"] or 0),
+                "packets_sent":     int(r.get("packets_sent") or 0),
+                "packets_received": int(r.get("packets_received") or 0),
+                "total_connections": int(r.get("total_connections") or 0),
+                "total_processes":  int(r.get("total_processes") or 0),
+                "unique_remote_ips": int(r.get("unique_remote_ips") or 0),
+                "pc_count":         len(r.get("pc_count", [])),
+                "pc_id":            "fleet-avg",
+            })
+        return {"pc_id": "fleet-avg", "range": range, "count": len(docs), "data": docs}
+    else:
+        # Demo mode — aggregate demo data across PCs
+        all_docs = [d for d in get_demo_data() if d["timestamp"] >= cutoff]
+        if not all_docs:
+            return {"pc_id": "fleet-avg", "range": range, "count": 0, "data": []}
+
+        # Group by bucketed timestamp
+        range_sec = get_range_seconds(range)
+        bucket_secs = max(60, range_sec // limit)
+        buckets: dict = {}
+        for d in all_docs:
+            key = int(d["timestamp"] // bucket_secs) * bucket_secs
+            if key not in buckets:
+                buckets[key] = []
+            buckets[key].append(d)
+
+        docs = []
+        for ts in sorted(buckets.keys())[:limit]:
+            group = buckets[ts]
+            n = len(group)
+            docs.append({
+                "timestamp":        ts,
+                "pc_id":            "fleet-avg",
+                "cpu_usage":        round(sum(d["cpu_usage"] for d in group) / n, 1),
+                "memory_usage":     round(sum(d["memory_usage"] for d in group) / n, 1),
+                "disk_usage":       round(sum(d.get("disk_usage", 0) for d in group) / n, 1),
+                "bytes_sent":       int(sum(d["bytes_sent"] for d in group) / n),
+                "bytes_received":   int(sum(d["bytes_received"] for d in group) / n),
+                "total_connections": int(sum(d.get("total_connections", 0) for d in group) / n),
+                "total_processes":  int(sum(d.get("total_processes", 0) for d in group) / n),
+                "pc_count":         len(set(d["pc_id"] for d in group)),
+            })
+        return {"pc_id": "fleet-avg", "range": range, "count": len(docs), "data": docs}
+
+
 # ─── Health check ─────────────────────────────────────────────────────────────
 
 @app.get("/api/health")

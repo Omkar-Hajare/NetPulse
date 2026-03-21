@@ -68,6 +68,12 @@ export async function fetchStats(range = '1h') {
   return fetchJSON(`/stats?range=${range}`);
 }
 
+// ─── Fleet-wide history (All PCs aggregated) ──────────────────────────────────
+
+export async function fetchFleetHistory(range = '1h', limit = 100) {
+  return fetchJSON(`/fleet/history?range=${range}&limit=${limit}`);
+}
+
 // ─── Health ───────────────────────────────────────────────────────────────────
 
 export async function fetchHealth() {
