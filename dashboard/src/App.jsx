@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import { useState, useEffect, useCallback } from 'react'
 import Sidebar from './components/Sidebar.jsx'
 import Header from './components/Header.jsx'
@@ -10,7 +10,10 @@ import {
   generateDemoSummaries, generateDemoOverview, generateDemoAlerts,
 } from './api.js'
 
+import Landing from './pages/Landing.jsx'
+
 export default function App() {
+  const location = useLocation()
   const [summaries, setSummaries] = useState(null)   // per-PC summary docs
   const [overviewKPIs, setOverviewKPIs] = useState(null)   // fleet-wide KPI numbers
   const [alertsData, setAlertsData] = useState(null)
@@ -57,11 +60,13 @@ export default function App() {
   // PC list derived from summaries
   const pcList = summaries?.map(s => s.pc_id) || []
 
-  return (
+  // Extracted dashboard layout
+  const DashboardLayout = () => (
     <div className="app-layout">
       <Sidebar />
       <div className="main-wrapper">
         <Header
+          user={location.state?.user || 'Admin'}
           pcList={pcList}
           selectedPC={selectedPC}
           onSelectPC={setSelectedPC}
@@ -83,16 +88,16 @@ export default function App() {
               />
             } />
 
-            {/* PC Detail — /pc shows card grid, /pc/:id shows full detail */}
-            <Route path="/pc" element={
+            {/* PC Detail — /dashboard/pc shows card grid, /dashboard/pc/:id shows full detail */}
+            <Route path="pc" element={
               <PCDetail summaries={summaries || []} timeRange={timeRange} onTimeRange={setTimeRange} />
             } />
-            <Route path="/pc/:pcId" element={
+            <Route path="pc/:pcId" element={
               <PCDetail summaries={summaries || []} timeRange={timeRange} onTimeRange={setTimeRange} />
             } />
 
             {/* Security / firewall view */}
-            <Route path="/security" element={
+            <Route path="security" element={
               <Security
                 alertsData={alertsData}
                 summaries={summaries}
@@ -101,7 +106,7 @@ export default function App() {
             } />
 
             {/* Alert feed */}
-            <Route path="/alerts" element={
+            <Route path="alerts" element={
               <Security
                 alertsData={alertsData}
                 summaries={summaries}
@@ -113,5 +118,12 @@ export default function App() {
         </div>
       </div>
     </div>
+  )
+
+  return (
+    <Routes>
+      <Route path="/" element={<Landing />} />
+      <Route path="/dashboard/*" element={<DashboardLayout />} />
+    </Routes>
   )
 }

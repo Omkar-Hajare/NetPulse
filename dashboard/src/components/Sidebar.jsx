@@ -9,24 +9,24 @@ export default function Sidebar() {
       </div>
 
       <nav className="sidebar-nav">
-        <NavLink to="/" end className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+        <NavLink to="/dashboard" end className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <span className="nav-icon">📊</span>
           <span>Overview</span>
         </NavLink>
 
-        <NavLink to="/pc" className={({ isActive }) =>
-          `nav-item ${isActive || window.location.pathname.startsWith('/pc/') ? 'active' : ''}`
+        <NavLink to="/dashboard/pc" className={({ isActive }) =>
+          `nav-item ${isActive || window.location.pathname.startsWith('/dashboard/pc/') ? 'active' : ''}`
         }>
           <span className="nav-icon">🖥️</span>
           <span>PC Detail</span>
         </NavLink>
 
-        <NavLink to="/security" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+        <NavLink to="/dashboard/security" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <span className="nav-icon">🛡️</span>
           <span>Security</span>
         </NavLink>
 
-        <NavLink to="/alerts" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+        <NavLink to="/dashboard/alerts" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <span className="nav-icon">🚨</span>
           <span>Alerts</span>
         </NavLink>

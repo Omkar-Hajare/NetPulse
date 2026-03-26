@@ -1,9 +1,20 @@
+import { useNavigate } from 'react-router-dom';
+
 export default function Header({
+  user,
   pcList = [], selectedPC, onSelectPC,
   timeRange, onTimeRange,
   lastUpdate, onRefresh,
   isConnected = true,
 }) {
+  const navigate = useNavigate();
+  const userName = user || 'Admin';
+  const initial = userName.charAt(0).toUpperCase();
+
+  const handleLogout = () => {
+    navigate('/');
+  };
+
   return (
     <header className="header">
       <div className="header-left">
@@ -63,6 +74,28 @@ export default function Header({
         <button className="header-btn" onClick={onRefresh} title="Refresh now">
           ↻ Refresh
         </button>
+
+        {/* User Profile & Logout */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: '12px', paddingLeft: '16px', borderLeft: '1px solid var(--border-subtle)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} title={userName}>
+            <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent-purple), var(--accent-cyan))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '13px', color: '#fff', boxShadow: '0 0 10px rgba(168, 85, 247, 0.3)' }}>
+              {initial}
+            </div>
+            <span style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text-primary)', maxWidth: '120px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {userName.split('@')[0]}
+            </span>
+          </div>
+          <button 
+            className="header-btn" 
+            onClick={handleLogout}
+            title="Log out"
+            style={{ color: 'var(--accent-red)', borderColor: 'rgba(255,71,87,0.2)' }}
+            onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255,71,87,0.1)'; e.currentTarget.style.borderColor = 'rgba(255,71,87,0.4)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,71,87,0.2)'; }}
+          >
+            Logout
+          </button>
+        </div>
       </div>
     </header>
   )
