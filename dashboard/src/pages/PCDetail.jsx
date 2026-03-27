@@ -129,7 +129,7 @@ function PCCardGrid({ summaries }) {
           return (
             <div
               key={s.pc_id}
-              onClick={() => navigate(`/pc/${encodeURIComponent(s.pc_id)}`)}
+              onClick={() => navigate(`/dashboard/pc/${encodeURIComponent(s.pc_id)}`)}
               style={{
                 background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.07)',
                 borderRadius: 12, padding: 20, cursor: 'pointer',
@@ -277,7 +277,7 @@ function PCDetailView({ timeRange, onTimeRange }) {
     <div>
       {/* Header — back button goes to /pc (card grid) */}
       <div className="page-header">
-        <button className="back-btn" onClick={() => navigate('/pc')}>← All PCs</button>
+        <button className="back-btn" onClick={() => navigate('/dashboard/pc')}>← All PCs</button>
         <h2>{pcId}</h2>
         <span className="uptime">⏱ {formatUptime(latest.uptime_seconds)}</span>
         {latest.risk_score != null && (

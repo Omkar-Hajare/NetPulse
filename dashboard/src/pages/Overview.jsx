@@ -274,7 +274,7 @@ export default function Overview({ summaries, overviewKPIs, timeRange, selectedP
               {sortedSummaries.map(s => {
                 const status = getStatus(s)
                 return (
-                  <tr key={s.pc_id} onClick={() => navigate(`/pc/${encodeURIComponent(s.pc_id)}`)}
+                  <tr key={s.pc_id} onClick={() => navigate(`/dashboard/pc/${encodeURIComponent(s.pc_id)}`)}
                     style={{ cursor: 'pointer' }}>
                     <td style={{ fontWeight: 600 }}>{s.pc_id}</td>
                     {/* FIX: use latest_cpu/latest_memory/latest_disk from summary schema */}

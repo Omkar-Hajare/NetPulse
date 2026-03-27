@@ -4,6 +4,8 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { Sphere, Line, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import '../landing.css';
+import { auth } from '../firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 
 // ─── 3D Network Globe Component ──────────────────────────────────────────
 function NetworkGlobe() {
@@ -76,11 +78,32 @@ export default function Landing() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Frontend-only auth for now — redirect to dashboard passing email as state
-    navigate('/dashboard', { state: { user: email || 'Admin' } });
+    setErrorMsg('');
+    try {
+      if (isLogin) {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const displayName = userCredential.user.displayName || email;
+        navigate('/dashboard', { state: { user: displayName } });
+      } else {
+        if (password !== confirmPassword) {
+          setErrorMsg("Passwords do not match");
+          return;
+        }
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(userCredential.user, {
+          displayName: username || email
+        });
+        navigate('/dashboard', { state: { user: username || email } });
+      }
+    } catch (error) {
+      setErrorMsg(error.message);
+    }
   };
 
   return (
@@ -126,6 +149,21 @@ export default function Landing() {
             </div>
 
             <form onSubmit={handleSubmit} className="auth-form">
+              {errorMsg && <div style={{ color: '#ff4757', fontSize: 13, marginBottom: 12 }}>{errorMsg}</div>}
+              
+              {!isLogin && (
+                <div className="input-group">
+                  <label>Username</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="e.g. admin" 
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                  />
+                </div>
+              )}
+
               <div className="input-group">
                 <label>Email address</label>
                 <input 
@@ -151,7 +189,13 @@ export default function Landing() {
               {!isLogin && (
                 <div className="input-group">
                   <label>Confirm Password</label>
-                  <input type="password" required placeholder="••••••••" />
+                  <input 
+                    type="password" 
+                    required 
+                    placeholder="••••••••" 
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
                 </div>
               )}
 
