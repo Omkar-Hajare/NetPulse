@@ -4,7 +4,7 @@ import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
-import { fetchPCLatest, fetchPCHistory, generateDemoHistory } from '../api.js'
+import { fetchPCLatest, fetchPCHistory, fetchPCRisk, generateDemoHistory } from '../api.js'
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -220,12 +220,15 @@ function PCDetailView({ timeRange, onTimeRange }) {
   const navigate = useNavigate()
   const [latest, setLatest] = useState(null)
   const [history, setHistory] = useState([])
+  const [riskData, setRiskData] = useState(null)
   const [prevPorts, setPrevPorts] = useState(new Set())
   const [localRange, setLocalRange] = useState(timeRange || '1h')
 
   useEffect(() => {
+    let isMounted = true
     async function load() {
       const l = await fetchPCLatest(pcId)
+      if (!isMounted) return
       if (l) {
         setLatest(l)
       } else {
@@ -233,6 +236,7 @@ function PCDetailView({ timeRange, onTimeRange }) {
         setLatest(demo.data[demo.data.length - 1])
       }
       const h = await fetchPCHistory(pcId, localRange)
+      if (!isMounted) return
       if (h?.data && h.data.length > 1) {
         setHistory(h.data)
         setPrevPorts(new Set(h.data[h.data.length - 2]?.listening_ports || []))
@@ -240,8 +244,16 @@ function PCDetailView({ timeRange, onTimeRange }) {
         const demo = generateDemoHistory(pcId, localRange)
         setHistory(demo.data)
       }
+
+      // Wire fetchPCRisk — load risk score + anomaly history
+      const risk = await fetchPCRisk(pcId)
+      if (!isMounted) return
+      if (risk) setRiskData(risk)
     }
     load()
+    // Auto-refresh every 60s to keep charts (including firewall blocks) current
+    const interval = setInterval(load, 60_000)
+    return () => { isMounted = false; clearInterval(interval) }
   }, [pcId, localRange])
 
   const handleRange = r => { setLocalRange(r); onTimeRange?.(r) }
@@ -455,6 +467,65 @@ function PCDetailView({ timeRange, onTimeRange }) {
           </div>
         )}
       </div>
+
+      {/* Risk Analysis Panel (from fetchPCRisk) */}
+      {riskData && (
+        <div className="chart-card">
+          <div className="chart-header">
+            <span className="chart-title">🧠 Risk Analysis</span>
+            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4,
+              background: riskData.is_anomaly ? 'rgba(255,71,87,0.15)' : 'rgba(0,255,136,0.1)',
+              color: riskData.is_anomaly ? '#ff4757' : '#00ff88',
+              fontWeight: 600 }}>
+              {riskData.is_anomaly ? '⚠ ANOMALY' : '✓ NORMAL'}
+            </span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 16, padding: '16px 24px' }}>
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>Risk Score</div>
+              <div style={{ fontSize: 26, fontWeight: 700, color: riskColor(riskData.risk_score) }}>
+                {riskData.risk_score ?? '—'}<span style={{ fontSize: 13 }}>/100</span>
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>Anomaly Score</div>
+              <div style={{ fontSize: 26, fontWeight: 700, color: riskColor(riskData.anomaly_score) }}>
+                {riskData.anomaly_score ?? '—'}<span style={{ fontSize: 13 }}>/100</span>
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>Detection Method</div>
+              <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'monospace', textTransform: 'uppercase', color: '#00d4ff' }}>
+                {riskData.detection_method ?? '—'}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>Samples Analysed</div>
+              <div style={{ fontSize: 18, fontWeight: 700 }}>{riskData.samples_analysed ?? '—'}</div>
+            </div>
+          </div>
+          {riskData.recent_anomalies?.length > 0 && (
+            <div style={{ padding: '0 24px 20px' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>Recent Anomaly Events</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {riskData.recent_anomalies.slice(0, 5).map((a, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12,
+                    padding: '6px 10px', borderRadius: 6,
+                    background: a.severity === 'critical' ? 'rgba(255,71,87,0.08)' : 'rgba(255,179,71,0.08)' }}>
+                    <span style={{ fontWeight: 700, color: a.severity === 'critical' ? '#ff4757' : '#ffb347', minWidth: 60 }}>
+                      {a.severity?.toUpperCase()}
+                    </span>
+                    <span style={{ flex: 1, color: 'var(--text-secondary)' }}>{a.message}</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+                      {new Date(a.timestamp * 1000).toLocaleTimeString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -1,0 +1,130 @@
+# ─────────────────────────────────────────────────────────────────────
+# NetPulse — Central Server (Docker Compose)
+#
+# Linux server infrastructure for multi-PC monitoring.
+# Runs: Kafka (KRaft) + MongoDB + API Server + Consumer + Analyser
+#
+# USAGE:
+#   1. Copy .env.example to .env and set your SERVER_IP
+#   2. docker compose up -d
+#   3. Deploy agents to Windows PCs pointing to this server
+# ─────────────────────────────────────────────────────────────────────
+
+version: "3.9"
+
+services:
+  # ─── Kafka (KRaft — no Zookeeper needed) ────────────────────────────
+  kafka:
+    image: bitnami/kafka:3.7
+    container_name: netpulse-kafka
+    restart: unless-stopped
+    ports:
+      - "9092:9092"
+    environment:
+      # KRaft mode — no Zookeeper
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      # Listeners — INTERNAL for containers, EXTERNAL for Windows agents
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:29092,CONTROLLER://:9093,EXTERNAL://:9092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:29092,EXTERNAL://${SERVER_IP:-localhost}:9092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      # Topic auto-creation
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_CFG_NUM_PARTITIONS=3
+      - KAFKA_CFG_DEFAULT_REPLICATION_FACTOR=1
+      # Performance
+      - KAFKA_CFG_LOG_RETENTION_HOURS=168
+      - KAFKA_CFG_LOG_SEGMENT_BYTES=1073741824
+    volumes:
+      - kafka_data:/bitnami/kafka
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:29092 --list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── MongoDB ────────────────────────────────────────────────────────
+  mongodb:
+    image: mongo:7
+    container_name: netpulse-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=netpulse
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Kafka Consumer (writes Kafka → MongoDB) ────────────────────────
+  consumer:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: netpulse-consumer
+    restart: unless-stopped
+    command: python kafka_consumer.py
+    environment:
+      - KAFKA_BROKER=kafka:29092
+      - KAFKA_TOPIC=network-logs
+      - MONGO_URI=mongodb://mongodb:27017/
+      - MONGO_DB=netpulse
+      - MONGO_COLLECTION=network_logs
+      - BATCH_SIZE=50
+      - BATCH_TIMEOUT=5
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+
+  # ─── API Server (FastAPI) ───────────────────────────────────────────
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: netpulse-api
+    restart: unless-stopped
+    command: python -m uvicorn api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/
+      - MONGO_DB=netpulse
+      - LOGS_COLLECTION=network_logs
+      - ALERTS_COLLECTION=alerts
+      - SUMMARY_COLLECTION=summaries
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  # ─── ML Analyser (background anomaly detection) ─────────────────────
+  analyser:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: netpulse-analyser
+    restart: unless-stopped
+    command: python analyser.py
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/
+      - MONGO_DB=netpulse
+      - ANALYSE_INTERVAL=60
+      - ANOMALY_CONTAMINATION=0.05
+    volumes:
+      - ml_models:/app/models
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+volumes:
+  kafka_data:
+  mongo_data:
+  ml_models:

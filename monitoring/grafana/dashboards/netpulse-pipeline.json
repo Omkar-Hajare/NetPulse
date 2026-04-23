@@ -1,0 +1,483 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "🔥 Pipeline Health Overview",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 100 },
+              { "color": "red", "value": 1000 }
+            ]
+          },
+          "mappings": []
+        }
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
+      "id": 1,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "title": "Kafka Consumer Lag",
+      "description": "Total consumer group lag — how far behind consumers are from latest messages",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(kafka_consumergroup_lag)",
+          "legendFormat": "Total Lag"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0 }
+            ]
+          },
+          "mappings": [
+            { "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } }, "type": "value" }
+          ]
+        }
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 6, "y": 1 },
+      "id": 2,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "title": "Kafka Broker Status",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "kafka_brokers",
+          "legendFormat": "Brokers"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 10, "y": 1 },
+      "id": 3,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "title": "MongoDB Connections",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "mongodb_ss_connections{conn_type=\"current\"}",
+          "legendFormat": "Current"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 5, "w": 5, "x": 14, "y": 1 },
+      "id": 4,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "title": "Kafka Messages/sec",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(kafka_topic_partition_current_offset{topic=\"network-logs\"}[1m]))",
+          "legendFormat": "msgs/sec"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "purple", "value": null }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 5, "w": 5, "x": 19, "y": 1 },
+      "id": 5,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "title": "MongoDB Ops/sec",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(mongodb_ss_opcounters[1m]))",
+          "legendFormat": "ops/sec"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
+      "id": 101,
+      "title": "📊 Kafka Monitoring",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "spanNulls": false,
+            "axisBorderShow": false,
+            "lineInterpolation": "smooth"
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
+      "id": 10,
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "title": "Consumer Group Lag Over Time",
+      "description": "How far behind the consumer is from the latest Kafka offset. Spikes = consumer can't keep up.",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "kafka_consumergroup_lag{topic=\"network-logs\"}",
+          "legendFormat": "{{partition}}"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "spanNulls": false,
+            "lineInterpolation": "smooth"
+          },
+          "unit": "ops"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
+      "id": 11,
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "Kafka Topic Throughput (Messages/sec)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(kafka_topic_partition_current_offset{topic=\"network-logs\"}[1m])) by (topic)",
+          "legendFormat": "{{topic}}"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10, "lineInterpolation": "smooth" },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "id": 12,
+      "title": "Kafka Partition Offsets",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "kafka_topic_partition_current_offset{topic=\"network-logs\"}",
+          "legendFormat": "Partition {{partition}}"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10, "lineInterpolation": "smooth" },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "id": 13,
+      "title": "Consumer Group Committed Offsets",
+      "description": "Rate at which the consumer is committing offsets — shows actual processing throughput",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "kafka_consumergroup_current_offset{topic=\"network-logs\"}",
+          "legendFormat": "P{{partition}} ({{consumergroup}})"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "id": 102,
+      "title": "🗃️ MongoDB Monitoring",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 15, "lineInterpolation": "smooth" },
+          "unit": "ops"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "id": 20,
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "MongoDB Operations/sec",
+      "description": "Insert, query, update, delete rates — shows how hard the pipeline pushes MongoDB",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(mongodb_ss_opcounters{type=\"insert\"}[1m])",
+          "legendFormat": "Inserts/sec"
+        },
+        {
+          "expr": "rate(mongodb_ss_opcounters{type=\"query\"}[1m])",
+          "legendFormat": "Queries/sec"
+        },
+        {
+          "expr": "rate(mongodb_ss_opcounters{type=\"update\"}[1m])",
+          "legendFormat": "Updates/sec"
+        },
+        {
+          "expr": "rate(mongodb_ss_opcounters{type=\"command\"}[1m])",
+          "legendFormat": "Commands/sec"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10, "lineInterpolation": "smooth" },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "id": 21,
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "MongoDB Active Connections",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "mongodb_ss_connections{conn_type=\"current\"}",
+          "legendFormat": "Current"
+        },
+        {
+          "expr": "mongodb_ss_connections{conn_type=\"available\"}",
+          "legendFormat": "Available"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 15, "lineInterpolation": "smooth" },
+          "unit": "bytes"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
+      "id": 22,
+      "title": "MongoDB Network I/O",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(mongodb_ss_network_bytesIn[1m])",
+          "legendFormat": "Bytes In/sec"
+        },
+        {
+          "expr": "rate(mongodb_ss_network_bytesOut[1m])",
+          "legendFormat": "Bytes Out/sec"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10, "lineInterpolation": "smooth" },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+      "id": 23,
+      "title": "MongoDB Document Operations",
+      "description": "Documents inserted, returned, updated, deleted",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(mongodb_ss_metrics_document{doc_op=\"inserted\"}[1m])",
+          "legendFormat": "Inserted/sec"
+        },
+        {
+          "expr": "rate(mongodb_ss_metrics_document{doc_op=\"returned\"}[1m])",
+          "legendFormat": "Returned/sec"
+        },
+        {
+          "expr": "rate(mongodb_ss_metrics_document{doc_op=\"updated\"}[1m])",
+          "legendFormat": "Updated/sec"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 },
+      "id": 103,
+      "title": "🐳 Container Resources",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 15, "lineInterpolation": "smooth" },
+          "unit": "percentunit"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 41 },
+      "id": 30,
+      "title": "Container CPU Usage",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{name=~\"netpulse.*\"}[1m])",
+          "legendFormat": "{{name}}"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 15, "lineInterpolation": "smooth" },
+          "unit": "bytes"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 41 },
+      "id": 31,
+      "title": "Container Memory Usage",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "container_memory_usage_bytes{name=~\"netpulse.*\"}",
+          "legendFormat": "{{name}}"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["netpulse", "pipeline", "monitoring"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "Prometheus", "value": "Prometheus" },
+        "hide": 0,
+        "includeAll": false,
+        "name": "DS_PROMETHEUS",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "NetPulse Pipeline Monitor",
+  "uid": "netpulse-pipeline",
+  "version": 1,
+  "refresh": "15s"
+}

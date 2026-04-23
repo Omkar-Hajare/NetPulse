@@ -80,6 +80,28 @@ export async function fetchHealth() {
   return fetchJSON('/health');
 }
 
+// ─── PC Status (online/offline) ───────────────────────────────────────────────
+
+export async function fetchPCsStatus() {
+  return fetchJSON('/pcs/status');
+}
+
+// ─── ML Anomaly Detection ─────────────────────────────────────────────────────
+
+export async function fetchAnomalies({ limit = 50, pcId } = {}) {
+  const params = new URLSearchParams({ limit });
+  if (pcId) params.set('pc_id', pcId);
+  return fetchJSON(`/anomalies?${params}`);
+}
+
+export async function fetchPCRisk(pcId) {
+  return fetchJSON(`/pcs/${encodeURIComponent(pcId)}/risk`);
+}
+
+export async function fetchMLStatus() {
+  return fetchJSON('/ml/status');
+}
+
 // ─── Demo data (used when API is unreachable) ─────────────────────────────────
 
 export function generateDemoSummaries() {

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -56,11 +56,21 @@ const TOOLTIP_STYLE = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 // FIX: prop is now `summaries` (array of summary docs) + `overviewKPIs` (fleet numbers)
-export default function Overview({ summaries, overviewKPIs, timeRange, selectedPC }) {
+export default function Overview({ summaries, overviewKPIs, fleetStats, pcStatuses, timeRange, selectedPC }) {
   const navigate = useNavigate()
   const [historyData, setHistoryData] = useState([])
   const [sortKey, setSortKey] = useState('pc_id')
   const [sortDir, setSortDir] = useState(1)
+  const hasMounted = useRef(false)
+
+  // Only apply entrance animation on first mount
+  useEffect(() => {
+    // Mark as mounted after the entrance animation completes (~400ms)
+    const timer = setTimeout(() => { hasMounted.current = true }, 500)
+    return () => clearTimeout(timer)
+  }, [])
+
+  const animClass = hasMounted.current ? 'smooth-update' : 'animate-in'
 
   // Load chart history — specific PC if selected, otherwise fleet-wide demo average
   useEffect(() => {
@@ -143,13 +153,13 @@ export default function Overview({ summaries, overviewKPIs, timeRange, selectedP
     <div>
       {/* ── KPI Cards ── */}
       <div className="kpi-grid">
-        <div className="kpi-card animate-in">
+        <div className={`kpi-card ${animClass}`}>
           <div className="kpi-icon">🖥️</div>
           <div className="kpi-label">Total PCs</div>
           <div className="kpi-value cyan">{kpis.total_pcs ?? summaries.length}</div>
           <div className="kpi-subtitle">{kpis.online_pcs ?? summaries.length} online</div>
         </div>
-        <div className="kpi-card animate-in">
+        <div className={`kpi-card ${animClass}`}>
           <div className="kpi-icon">⚡</div>
           <div className="kpi-label">Avg CPU</div>
           <div className="kpi-value"
@@ -158,7 +168,7 @@ export default function Overview({ summaries, overviewKPIs, timeRange, selectedP
           </div>
           <div className="kpi-subtitle">Across all PCs</div>
         </div>
-        <div className="kpi-card animate-in">
+        <div className={`kpi-card ${animClass}`}>
           <div className="kpi-icon">💾</div>
           <div className="kpi-label">Avg Memory</div>
           <div className="kpi-value"
@@ -167,13 +177,13 @@ export default function Overview({ summaries, overviewKPIs, timeRange, selectedP
           </div>
           <div className="kpi-subtitle">Across all PCs</div>
         </div>
-        <div className="kpi-card animate-in">
+        <div className={`kpi-card ${animClass}`}>
           <div className="kpi-icon">🔗</div>
           <div className="kpi-label">Total Connections</div>
           <div className="kpi-value green">{(kpis.total_connections ?? 0).toLocaleString()}</div>
           <div className="kpi-subtitle">TCP + UDP active</div>
         </div>
-        <div className={`kpi-card animate-in ${(kpis.total_alerts || 0) > 0 ? 'danger' : ''}`}>
+        <div className={`kpi-card ${animClass} ${(kpis.total_alerts || 0) > 0 ? 'danger' : ''}`}>
           <div className="kpi-icon">🚨</div>
           <div className="kpi-label">Active Alerts</div>
           <div className={`kpi-value ${(kpis.total_alerts || 0) > 0 ? 'red' : 'green'}`}>
@@ -183,44 +193,72 @@ export default function Overview({ summaries, overviewKPIs, timeRange, selectedP
         </div>
       </div>
 
+      {/* ── Fleet Stats Row (from fetchStats) ── */}
+      {fleetStats && (
+        <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginTop: 0 }}>
+          <div className={`kpi-card ${animClass}`} style={{ padding: '14px 20px' }}>
+            <div className="kpi-label" style={{ fontSize: 11 }}>📤 Total Bytes Sent</div>
+            <div className="kpi-value cyan" style={{ fontSize: 18 }}>{formatBytes(fleetStats.total_bytes_sent ?? 0)}</div>
+            <div className="kpi-subtitle">This {timeRange}</div>
+          </div>
+          <div className={`kpi-card ${animClass}`} style={{ padding: '14px 20px' }}>
+            <div className="kpi-label" style={{ fontSize: 11 }}>📥 Total Bytes Recv</div>
+            <div className="kpi-value green" style={{ fontSize: 18 }}>{formatBytes(fleetStats.total_bytes_recv ?? 0)}</div>
+            <div className="kpi-subtitle">This {timeRange}</div>
+          </div>
+          <div className={`kpi-card ${animClass}`} style={{ padding: '14px 20px' }}>
+            <div className="kpi-label" style={{ fontSize: 11 }}>🔥 Firewall Blocked</div>
+            <div className={`kpi-value ${(fleetStats.total_blocked ?? 0) > 100 ? 'red' : ''}`} style={{ fontSize: 18 }}>
+              {(fleetStats.total_blocked ?? 0).toLocaleString()}
+            </div>
+            <div className="kpi-subtitle">Events this {timeRange}</div>
+          </div>
+          <div className={`kpi-card ${animClass}`} style={{ padding: '14px 20px' }}>
+            <div className="kpi-label" style={{ fontSize: 11 }}>🗄️ Data Points</div>
+            <div className="kpi-value" style={{ fontSize: 18 }}>{(fleetStats.doc_count ?? 0).toLocaleString()}</div>
+            <div className="kpi-subtitle">Log entries collected</div>
+          </div>
+        </div>
+      )}
+
       {/* ── CPU & Memory Chart ── */}
-      <div className="chart-card animate-in">
+      <div className={`chart-card ${animClass}`}>
         <div className="chart-header">
           <span className="chart-title">CPU & Memory — {chartLabel}</span>
         </div>
         <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={chartData}>
+          <LineChart data={chartData} isAnimationActive={!hasMounted.current}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
             <XAxis dataKey="time" stroke="#555577" fontSize={11} tickLine={false} />
             <YAxis stroke="#555577" fontSize={11} tickLine={false} domain={[0, 100]} unit="%" />
             <Tooltip contentStyle={TOOLTIP_STYLE} />
             <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-            <Line type="monotone" dataKey="cpu" name="CPU %" stroke="#00d4ff" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-            <Line type="monotone" dataKey="memory" name="Memory %" stroke="#00ff88" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+            <Line type="monotone" dataKey="cpu" name="CPU %" stroke="#00d4ff" strokeWidth={2} dot={false} activeDot={{ r: 4 }} isAnimationActive={!hasMounted.current} />
+            <Line type="monotone" dataKey="memory" name="Memory %" stroke="#00ff88" strokeWidth={2} dot={false} activeDot={{ r: 4 }} isAnimationActive={!hasMounted.current} />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
       {/* ── Network + Connections Row ── */}
       <div className="chart-grid">
-        <div className="chart-card animate-in">
+        <div className={`chart-card ${animClass}`}>
           <div className="chart-header">
             <span className="chart-title">Network Throughput</span>
           </div>
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={chartData}>
+            <AreaChart data={chartData} isAnimationActive={!hasMounted.current}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
               <XAxis dataKey="time" stroke="#555577" fontSize={11} tickLine={false} />
               <YAxis stroke="#555577" fontSize={11} tickLine={false} tickFormatter={v => formatBytes(v)} />
               <Tooltip contentStyle={TOOLTIP_STYLE} formatter={v => formatBytes(v)} />
               <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-              <Area type="monotone" dataKey="bytesSent" name="Sent" stroke="#00d4ff" fill="rgba(0,212,255,0.15)" strokeWidth={2} />
-              <Area type="monotone" dataKey="bytesRecv" name="Received" stroke="#00ff88" fill="rgba(0,255,136,0.15)" strokeWidth={2} />
+              <Area type="monotone" dataKey="bytesSent" name="Sent" stroke="#00d4ff" fill="rgba(0,212,255,0.15)" strokeWidth={2} isAnimationActive={!hasMounted.current} />
+              <Area type="monotone" dataKey="bytesRecv" name="Received" stroke="#00ff88" fill="rgba(0,255,136,0.15)" strokeWidth={2} isAnimationActive={!hasMounted.current} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
 
-        <div className="chart-card animate-in">
+        <div className={`chart-card ${animClass}`}>
           <div className="chart-header">
             <span className="chart-title">Fleet Connections</span>
           </div>
@@ -234,6 +272,7 @@ export default function Overview({ summaries, overviewKPIs, timeRange, selectedP
                     height: '100%',
                     background: '#00d4ff',
                     borderRadius: 4,
+                    transition: 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
                   }} />
                 </div>
                 <span style={{ fontSize: 12, color: 'var(--text-secondary)', minWidth: 30, textAlign: 'right' }}>
@@ -246,7 +285,7 @@ export default function Overview({ summaries, overviewKPIs, timeRange, selectedP
       </div>
 
       {/* ── PC Status Table ── */}
-      <div className="chart-card animate-in">
+      <div className={`chart-card ${animClass}`}>
         <div className="chart-header">
           <span className="chart-title">PC Status</span>
           <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{sortedSummaries.length} devices</span>
@@ -273,11 +312,18 @@ export default function Overview({ summaries, overviewKPIs, timeRange, selectedP
             <tbody>
               {sortedSummaries.map(s => {
                 const status = getStatus(s)
+                // Prefer real online/offline from API status endpoint
+                const liveStatus = pcStatuses?.find(p => p.pc_id === s.pc_id)
+                const isOnline = liveStatus ? liveStatus.status === 'online' : (Date.now() / 1000 - (s.last_seen || 0)) < 180
                 return (
                   <tr key={s.pc_id} onClick={() => navigate(`/dashboard/pc/${encodeURIComponent(s.pc_id)}`)}
                     style={{ cursor: 'pointer' }}>
-                    <td style={{ fontWeight: 600 }}>{s.pc_id}</td>
-                    {/* FIX: use latest_cpu/latest_memory/latest_disk from summary schema */}
+                    <td style={{ fontWeight: 600 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: isOnline ? '#00ff88' : '#ff4757', flexShrink: 0, boxShadow: isOnline ? '0 0 5px #00ff88' : 'none' }} />
+                        {s.pc_id}
+                      </span>
+                    </td>
                     <td style={{ color: (s.latest_cpu || 0) > 80 ? 'var(--accent-red)' : 'inherit' }}>{s.latest_cpu}%</td>
                     <td style={{ color: (s.latest_memory || 0) > 90 ? 'var(--accent-red)' : 'inherit' }}>{s.latest_memory}%</td>
                     <td style={{ color: (s.latest_disk || 0) > 85 ? 'var(--accent-amber)' : 'inherit' }}>{s.latest_disk}%</td>

@@ -2,8 +2,8 @@
 
 **Real-Time Network Monitoring and Security Analytics Platform**
 
-NetPulse is a lightweight distributed monitoring system designed to collect, stream, analyze, and visualize system and network activity across multiple computers in real time.
-It helps administrators monitor system health, detect suspicious network behavior, and gain insights into network activity through centralized dashboards.
+NetPulse is a distributed monitoring system that collects, streams, analyzes, and visualizes system and network activity across multiple computers in real time.
+It features **ML-based anomaly detection** using Isolation Forest to automatically identify suspicious network behavior.
 
 ---
 
@@ -14,37 +14,34 @@ Monitoring each system individually is inefficient and security threats can go u
 
 NetPulse solves this problem by:
 
-* Collecting system and network metrics from multiple PCs
-* Streaming the data through a scalable pipeline
-* Storing logs centrally for analysis
-* Providing insights for monitoring and anomaly detection
+* Collecting system and network metrics from multiple Windows PCs
+* Streaming data through Apache Kafka to a central Linux server
+* Applying ML anomaly detection (Isolation Forest) on collected data
+* Providing real-time dashboards for monitoring and alerting
 
 ---
 
 # 🏗️ Architecture
 
-Client machines run a **NetPulse Agent** that collects system and network metrics.
-The collected logs are streamed to a **Kafka broker**, processed by a **consumer service**, and stored in **MongoDB** for further analysis and visualization.
-
 ```
-Client PCs
-   │
-   │  NetPulse Agent (Python)
-   ▼
-Kafka Producer
-   │
-   ▼
-Kafka Broker
-   │
-   ▼
-Kafka Consumer
-   │
-   ▼
-MongoDB Database
-   │
-   ▼
-Monitoring Dashboard
-(Grafana / Analytics)
+   Windows PCs (Agents)               Linux Central Server
+  ┌─────────┐ ┌─────────┐          ┌──────────────────────────────┐
+  │ PC-01   │ │ PC-02   │          │                              │
+  │ Agent   │ │ Agent   │  LAN     │  ┌──────┐    ┌──────────┐   │
+  │ psutil  │ │ psutil  │ ──9092──→│  │Kafka │ →  │Consumer  │   │
+  └─────────┘ └─────────┘          │  │Broker│    │(→MongoDB)│   │
+  ┌─────────┐ ┌─────────┐          │  └──────┘    └──────────┘   │
+  │ PC-03   │ │ PC-04   │          │                              │
+  │ Agent   │ │ Agent   │──────────│  ┌──────────┐  ┌─────────┐  │
+  └─────────┘ └─────────┘          │  │MongoDB   │←→│API      │  │
+                                   │  │Database  │  │Server   │  │
+       Browsers ──8000──────────→  │  └──────────┘  └─────────┘  │
+                                   │                              │
+                                   │  ┌──────────┐  ┌─────────┐  │
+                                   │  │ML        │  │Dashboard│  │
+                                   │  │Analyser  │  │(React)  │  │
+                                   │  └──────────┘  └─────────┘  │
+                                   └──────────────────────────────┘
 ```
 
 ---
@@ -52,151 +49,271 @@ Monitoring Dashboard
 # ⚙️ Features
 
 ### System Monitoring
-
-* CPU usage tracking
-* Memory usage monitoring
-* System uptime
-* Disk usage
+* CPU, memory, disk usage tracking
+* System uptime monitoring
+* Top process tracking (by CPU usage)
 
 ### Network Monitoring
-
-* Network traffic statistics
+* Real-time traffic statistics (bytes/packets sent/received)
 * TCP and UDP connection counts
 * Unique remote IP tracking
-* Network packet statistics
+* Listening port monitoring
 
-### Security Monitoring
-
-* Detection of suspicious ports
-* Potential port scan detection
-* Firewall log analysis (optional)
-* Connection anomaly detection
+### Security & Anomaly Detection
+* **ML-based anomaly detection** (Isolation Forest — unsupervised)
+* Suspicious port monitoring (21, 22, 23, 445, 3389, etc.)
+* Port scan detection
+* Windows firewall event log analysis
+* Risk scoring per PC (0–100 scale)
 
 ### Data Pipeline
-
-* High-throughput streaming using Apache Kafka
-* Fault-tolerant message processing
-* Batch database writes for efficiency
-
----
-
-# 📊 Metrics Collected
-
-The NetPulse agent collects the following metrics:
-
-| Category         | Metrics                                      |
-| ---------------- | -------------------------------------------- |
-| System           | CPU usage, memory usage                      |
-| Network          | bytes sent/received, packets sent/received   |
-| Connections      | TCP connections, UDP connections             |
-| Security         | suspicious port access, potential port scans |
-| Network analysis | unique remote IP addresses                   |
-
-Example log message:
-
-```json
-{
- "pc_id": "LAB-PC-01",
- "timestamp": 1710523000,
- "cpu_usage": 23,
- "memory_usage": 42,
- "total_connections": 35,
- "tcp_count": 25,
- "udp_count": 10,
- "unique_remote_ips": 6,
- "bytes_sent": 20000,
- "bytes_received": 30000,
- "suspicious_port_access": 1,
- "potential_port_scan": 0
-}
-```
+* High-throughput streaming using Apache Kafka (KRaft mode)
+* Fault-tolerant message processing with batch writes
+* Idempotent writes with deduplication
 
 ---
 
 # 🛠️ Technology Stack
 
-| Component         | Technology              |
-| ----------------- | ----------------------- |
-| Data Collection   | Python, psutil          |
-| Message Streaming | Apache Kafka            |
-| Data Processing   | Kafka Consumer (Python) |
-| Database          | MongoDB                 |
-| Visualization     | Grafana (optional)      |
-| OS Environment    | Ubuntu / Linux          |
+| Component            | Technology                       |
+| -------------------- | -------------------------------- |
+| Agent (Windows)      | Python, psutil, pywin32          |
+| Message Streaming    | Apache Kafka (KRaft, Docker)     |
+| Data Processing      | Kafka Consumer (Python)          |
+| Database             | MongoDB 7                        |
+| ML Anomaly Detection | scikit-learn (Isolation Forest)  |
+| API Server           | FastAPI + Uvicorn                |
+| Dashboard            | React + Vite + Recharts          |
+| Deployment           | Docker Compose (Linux server)    |
 
 ---
 
-# 📦 Installation
+# 🚀 Quick Start — Multi-PC Deployment
 
-## 1. Clone the Repository
+## Step 1: Setup Central Server (Linux)
 
+```bash
+# Clone the repo on your Linux server
+git clone https://github.com/Omkar-Hajare/NetPulse.git
+cd NetPulse
+
+# Copy and edit the environment file
+cp .env.example .env
+nano .env  # Set SERVER_IP to your Linux server's LAN IP
+
+# Run the setup script (installs Docker if needed, starts everything)
+chmod +x deploy/setup_server.sh
+sudo ./deploy/setup_server.sh
 ```
-git clone https://github.com/yourusername/netpulse.git
-cd netpulse
+
+This starts all services via Docker Compose:
+- **Kafka** (port 9092) — message broker
+- **MongoDB** (port 27017) — data storage
+- **API Server** (port 8000) — REST API
+- **Consumer** — writes Kafka → MongoDB
+- **ML Analyser** — anomaly detection service
+
+Verify the server is running:
+```bash
+curl http://localhost:8000/api/health
+```
+
+## Step 2: Deploy Agent to Windows PCs
+
+On each Windows PC you want to monitor:
+
+### Option A: PowerShell installer (recommended)
+```powershell
+# Run as Administrator
+.\deploy\install_agent.ps1 -ServerIP 192.168.1.100
+# or with a custom PC name:
+.\deploy\install_agent.ps1 -ServerIP 192.168.1.100 -PCName "LAB-PC-01"
+```
+
+### Option B: Batch file
+```cmd
+# Run as Administrator
+deploy\install_agent.bat 192.168.1.100
+# or:
+deploy\install_agent.bat 192.168.1.100 LAB-PC-01
+```
+
+### Option C: Manual
+```cmd
+# Set environment variables
+set KAFKA_BROKER=192.168.1.100:9092
+set PC_ID=MY-PC-NAME
+set KAFKA_TOPIC=network-logs
+
+# Install dependencies
+pip install psutil kafka-python pywin32
+
+# Start the agent
+cd agent
+python network_log_agent.py
+```
+
+## Step 3: View the Dashboard
+
+Open a browser and navigate to:
+```
+http://<server-ip>:8000/docs    # API documentation
+```
+
+Or run the React dashboard:
+```bash
+cd dashboard
+npm install
+npm run dev
 ```
 
 ---
 
-## 2. Install Python Dependencies
+# 🧠 ML Anomaly Detection
+
+NetPulse uses an **Isolation Forest** model for unsupervised anomaly detection.
+
+### How It Works
+
+1. The **ML Analyser** service runs in the background
+2. It collects log data from MongoDB and extracts 13 features:
+   - CPU, memory, disk usage
+   - Network traffic (bytes sent/received, ratio)
+   - Connection metrics (total, unique IPs)
+   - Security indicators (suspicious ports, port scans, firewall blocks)
+3. The model is auto-trained when 50+ log entries are available
+4. Each new log is scored on a **0–100 risk scale**
+5. Anomalies generate alerts visible in the dashboard
+
+### Manual Training
+
+```bash
+# Train on all available data
+python ml/train_model.py
+
+# Train on last 7 days only
+python ml/train_model.py --hours 168
+
+# Adjust anomaly sensitivity (default: 5%)
+python ml/train_model.py --contamination 0.10
+
+# Generate synthetic training data first
+python ml/train_model.py --generate-synthetic --synthetic-samples 1000
+```
+
+### Model Output
+
+Training produces three files in `ml/models/`:
+- `anomaly_model.pkl` — trained Isolation Forest
+- `scaler.pkl` — fitted StandardScaler
+- `model_metadata.json` — training stats and hyperparameters
+
+---
+
+# 📊 API Endpoints
+
+| Endpoint | Method | Description |
+| --- | --- | --- |
+| `/api/health` | GET | Health check + ML status |
+| `/api/pcs` | GET | List all monitored PC IDs |
+| `/api/pcs/status` | GET | Online/offline status per PC |
+| `/api/summaries` | GET | Per-PC summary (latest metrics) |
+| `/api/overview` | GET | Fleet-wide aggregated KPIs |
+| `/api/pcs/{id}/latest` | GET | Latest snapshot for a PC |
+| `/api/pcs/{id}/history` | GET | Time-series data for a PC |
+| `/api/pcs/{id}/risk` | GET | ML risk score + anomaly history |
+| `/api/fleet/history` | GET | Aggregated fleet time-series |
+| `/api/alerts` | GET | Security & anomaly alerts |
+| `/api/anomalies` | GET | ML-detected anomalies only |
+| `/api/ml/status` | GET | Model training metadata |
+| `/api/security/threat-ips` | GET | Blocked IP aggregation |
+| `/api/stats` | GET | Global stats over time range |
+
+---
+
+# 📁 Project Structure
 
 ```
-pip install psutil kafka-python pymongo
+NetPulse/
+├── agent/                      # Windows agent (runs on each PC)
+│   ├── network_log_agent.py    # Main collector script
+│   ├── requirements.txt
+│   └── start_agent.bat
+│
+├── server/                     # Central server services
+│   ├── api.py                  # FastAPI REST API
+│   ├── kafka_consumer.py       # Kafka → MongoDB writer
+│   ├── analyser.py             # ML anomaly detection service
+│   ├── config.py               # Shared configuration
+│   ├── Dockerfile              # Docker image for all services
+│   ├── requirements.txt
+│   └── start_server.sh         # Manual startup script (WSL)
+│
+├── ml/                         # Machine learning
+│   ├── train_model.py          # Model training script
+│   ├── models/                 # Saved model artifacts
+│   └── requirements.txt
+│
+├── dashboard/                  # React frontend
+│   ├── src/
+│   │   ├── pages/              # Overview, PCDetail, Security
+│   │   ├── components/         # Sidebar, Header
+│   │   └── api.js              # API client functions
+│   └── ...
+│
+├── deploy/                     # Deployment scripts
+│   ├── setup_server.sh         # Linux server auto-setup
+│   ├── install_agent.ps1       # Windows agent installer
+│   └── install_agent.bat       # Batch wrapper
+│
+├── docker-compose.yml          # Full stack deployment
+├── .env.example                # Environment config template
+└── Readme.md
 ```
 
 ---
 
-## 3. Start Kafka
+# 🔧 Docker Compose Services
 
-Make sure Kafka is running.
+```bash
+# Start all services
+docker compose up -d
 
-```
-bin/kafka-server-start.sh config/server.properties
+# View logs
+docker compose logs -f
+
+# Stop all services
+docker compose down
+
+# Rebuild after code changes
+docker compose build && docker compose up -d
 ```
 
-Create topic:
-
-```
-bin/kafka-topics.sh --create \
---topic network-logs \
---bootstrap-server localhost:9092
-```
+| Service    | Container Name       | Port  | Purpose                     |
+| ---------- | -------------------- | ----- | --------------------------- |
+| kafka      | netpulse-kafka       | 9092  | Message broker              |
+| mongodb    | netpulse-mongodb     | 27017 | Data storage                |
+| consumer   | netpulse-consumer    | —     | Kafka → MongoDB writer      |
+| api        | netpulse-api         | 8000  | REST API server             |
+| analyser   | netpulse-analyser    | —     | ML anomaly detection        |
 
 ---
-
-# 🚀 Running the System
-
-## Step 1 — Start the Kafka Consumer
-
-This service reads logs from Kafka and stores them in MongoDB.
-
-```
-python consumer.py
-```
-
----
-
-## Step 2 — Start NetPulse Agent on Client PCs
-
-Run the collector script on each monitored machine.
-
-```
-python agent.py
-```
-
-Each agent will begin sending metrics to the Kafka server.
-
----
-
-
 
 # 🔒 Security Capabilities
 
-NetPulse includes basic network threat detection:
+* Suspicious port monitoring (FTP, SSH, Telnet, SMB, RDP)
+* Port scan detection (>5 unique IPs on same port)
+* Windows firewall event log analysis
+* ML anomaly detection with risk scoring
+* Real-time alerting (critical/warning/info levels)
+* Blocked IP aggregation across fleet
 
-* Suspicious port monitoring
-* Port scan detection
-* Abnormal connection tracking
-* Firewall event monitoring (optional)
+---
 
-These features provide early indicators of potential network attacks.
+# 🤝 Contributing
 
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/my-feature`
+3. Commit changes: `git commit -m 'Add my feature'`
+4. Push to branch: `git push origin feature/my-feature`
+5. Open a Pull Request

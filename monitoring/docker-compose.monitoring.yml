@@ -1,0 +1,103 @@
+# ─────────────────────────────────────────────────────────────────────
+# NetPulse — Monitoring Stack (Standalone)
+#
+# Runs ONLY the monitoring layer. Does NOT touch your pipeline.
+# Connects to your manually-running Kafka & MongoDB on the host.
+#
+# USAGE:
+#   1. Make sure your pipeline is running (Kafka, MongoDB, API, etc.)
+#   2. cd monitoring
+#   3. docker compose -f docker-compose.monitoring.yml up -d
+#   4. Open Grafana: http://localhost:3001  (admin / netpulse)
+#   5. Open Prometheus: http://localhost:9090
+#
+# TO STOP:
+#   docker compose -f docker-compose.monitoring.yml down
+# ─────────────────────────────────────────────────────────────────────
+
+version: "3.9"
+
+services:
+  # ─── Prometheus (metrics collector) ──────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: netpulse-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+      - "--web.enable-lifecycle"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ─── Grafana (visualization) ─────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: netpulse-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=netpulse
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/netpulse-pipeline.json
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+  # ─── MongoDB Exporter ────────────────────────────────────────────
+  #     Connects to your MongoDB running on host:27017
+  mongodb-exporter:
+    image: percona/mongodb_exporter:0.40
+    container_name: netpulse-mongodb-exporter
+    restart: unless-stopped
+    ports:
+      - "9216:9216"
+    environment:
+      - MONGODB_URI=mongodb://host.docker.internal:27017
+    command:
+      - "--mongodb.uri=mongodb://host.docker.internal:27017"
+      - "--collect-all"
+      - "--compatible-mode"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ─── Kafka Exporter ──────────────────────────────────────────────
+  #     Connects to your Kafka running on host:9092
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    container_name: netpulse-kafka-exporter
+    restart: unless-stopped
+    ports:
+      - "9308:9308"
+    command:
+      - "--kafka.server=host.docker.internal:9092"
+      - "--topic.filter=network-logs"
+      - "--group.filter=netpulse.*"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ─── cAdvisor (container resource metrics) ───────────────────────
+  #     Shows CPU/memory of any running Docker containers
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: netpulse-cadvisor
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - //var/run/docker.sock:/var/run/docker.sock:ro
+    privileged: true
+
+volumes:
+  prometheus_data:
+  grafana_data:

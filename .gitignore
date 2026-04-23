@@ -38,6 +38,12 @@ netpulse_consumer.log
 netpulse_analyser.log
 
 # Saved ML models (large binary files — regenerate from training data)
+server/models/
+server/models/*.pkl
+server/models/*.joblib
+server/models/*.h5
+server/models/model_metadata.json
+
 ml/models/*.pkl
 ml/models/*.joblib
 ml/models/*.h5

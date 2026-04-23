@@ -45,6 +45,7 @@ REM ─── Install dependencies if needed ───────────�
 echo [1/2] Checking dependencies...
 pip show psutil >nul 2>&1 || pip install psutil
 pip show kafka-python >nul 2>&1 || pip install kafka-python
+pip show pywin32 >nul 2>&1 || pip install pywin32
 echo   Done.
 echo.
 

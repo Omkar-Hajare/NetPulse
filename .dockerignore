@@ -1,0 +1,12 @@
+node_modules/
+__pycache__/
+*.pyc
+.git/
+.gitignore
+dashboard/node_modules/
+dashboard/dist/
+*.log
+.env
+ml/models/*.pkl
+.firewall_state
+venv/

@@ -14,13 +14,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient, DESCENDING
 from pymongo.errors import ServerSelectionTimeoutError
 
-# ─── Configuration ────────────────────────────────────────────────────────────
-
-MONGO_URI           = os.getenv("MONGO_URI",           "mongodb://localhost:27017/")
-MONGO_DB            = os.getenv("MONGO_DB",            "netpulse")
-LOGS_COLLECTION     = os.getenv("LOGS_COLLECTION",     "network_logs")
-ALERTS_COLLECTION   = os.getenv("ALERTS_COLLECTION",   "alerts")
-SUMMARY_COLLECTION  = os.getenv("SUMMARY_COLLECTION",  "summaries")
+# ─── Configuration (imported from central config) ────────────────────────────
+from config import (
+    MONGO_URI, MONGO_DB,
+    LOGS_COLLECTION, ALERTS_COLLECTION, SUMMARY_COLLECTION,
+)
 
 # ─── App Setup ────────────────────────────────────────────────────────────────
 
@@ -426,6 +424,11 @@ def _derive_alerts(docs: list, limit: int) -> list:
                 "message":   f"High firewall block rate: {blocked} blocks. Top IP: {fw.get('top_blocked_ip', 'unknown')}",
                 "value":     blocked,
                 "resolved":  False,
+                "details": {
+                    "blocked_ports": fw.get("blocked_ports", []),
+                    "blocked_ips":   fw.get("blocked_ips", []),
+                    "top_blocked_ip": fw.get("top_blocked_ip"),
+                },
             })
 
     alerts.sort(key=lambda x: x["timestamp"], reverse=True)
@@ -571,6 +574,7 @@ def get_fleet_history(
                 "total_connections": {"$avg": "$total_connections"},
                 "total_processes":  {"$avg": "$total_processes"},
                 "unique_remote_ips": {"$avg": "$unique_remote_ips"},
+                "firewall_blocked": {"$sum": "$firewall.blocked_count"},
                 "pc_count":        {"$addToSet": "$pc_id"},
             }},
             {"$sort": {"_id": 1}},
@@ -591,6 +595,7 @@ def get_fleet_history(
                 "total_connections": int(r.get("total_connections") or 0),
                 "total_processes":  int(r.get("total_processes") or 0),
                 "unique_remote_ips": int(r.get("unique_remote_ips") or 0),
+                "firewall_blocked": int(r.get("firewall_blocked") or 0),
                 "pc_count":         len(r.get("pc_count", [])),
                 "pc_id":            "fleet-avg",
             })
@@ -625,9 +630,159 @@ def get_fleet_history(
                 "bytes_received":   int(sum(d["bytes_received"] for d in group) / n),
                 "total_connections": int(sum(d.get("total_connections", 0) for d in group) / n),
                 "total_processes":  int(sum(d.get("total_processes", 0) for d in group) / n),
+                "firewall_blocked": sum(d.get("firewall", {}).get("blocked_count", 0) for d in group),
                 "pc_count":         len(set(d["pc_id"] for d in group)),
             })
         return {"pc_id": "fleet-avg", "range": range, "count": len(docs), "data": docs}
+
+
+# ─── PC Status (online/offline) ───────────────────────────────────────────────
+
+@app.get("/api/pcs/status")
+def get_pcs_status():
+    """Get online/offline status for all PCs based on last-seen timestamp."""
+    result = get_summaries()
+    summaries = result["summaries"]
+    now = time.time()
+    online_cutoff = now - 180  # 3 minutes
+
+    statuses = []
+    for s in summaries:
+        last_seen = s.get("last_seen", 0)
+        statuses.append({
+            "pc_id":     s.get("pc_id"),
+            "status":    "online" if last_seen >= online_cutoff else "offline",
+            "last_seen": last_seen,
+            "uptime_seconds": s.get("uptime_seconds", 0),
+            "latest_cpu":     s.get("latest_cpu", 0),
+            "latest_memory":  s.get("latest_memory", 0),
+            "risk_score":     s.get("risk_score"),
+            "is_anomaly":     s.get("is_anomaly", False),
+        })
+    return {"pcs": statuses, "total": len(statuses)}
+
+
+# ─── ML Anomaly Detection endpoints ──────────────────────────────────────────
+
+@app.get("/api/anomalies")
+def get_anomalies(
+    limit: int           = Query(50,  ge=1, le=200),
+    pc_id: Optional[str] = Query(None),
+):
+    """
+    List recent anomaly detections with scores.
+    Returns alerts with category='anomaly' from the analyser.
+    """
+    if has_real_data():
+        query = {"category": "anomaly", "resolved": False}
+        if pc_id:
+            query["pc_id"] = pc_id
+
+        docs = list(
+            get_collection(ALERTS_COLLECTION)
+            .find(query)
+            .sort("timestamp", DESCENDING)
+            .limit(limit)
+        )
+        total = get_collection(ALERTS_COLLECTION).count_documents(query)
+        return {
+            "anomalies": [serialize_doc(d) for d in docs],
+            "total": total,
+        }
+    else:
+        # Demo mode — generate fake anomalies
+        now = time.time()
+        pcs = list(set(d["pc_id"] for d in get_demo_data()))
+        anomalies = []
+        import random
+        for i, pc in enumerate(pcs[:3]):
+            if random.random() > 0.5:
+                anomalies.append({
+                    "pc_id":     pc,
+                    "timestamp": now - i * 300,
+                    "severity":  "critical" if random.random() > 0.6 else "warning",
+                    "category":  "anomaly",
+                    "message":   f"ML anomaly detected — risk score: {random.randint(55, 95)}/100",
+                    "value":     random.randint(55, 95),
+                    "resolved":  False,
+                    "detection_method": "demo",
+                })
+        return {"anomalies": anomalies, "total": len(anomalies)}
+
+
+@app.get("/api/pcs/{pc_id}/risk")
+def get_pc_risk(pc_id: str):
+    """Get risk score and anomaly history for a specific PC."""
+    if has_real_data():
+        # Get summary with risk score
+        summary = get_collection(SUMMARY_COLLECTION).find_one({"pc_id": pc_id})
+        if not summary:
+            raise HTTPException(status_code=404, detail=f"PC '{pc_id}' not found")
+
+        # Get recent anomaly alerts for this PC
+        recent_anomalies = list(
+            get_collection(ALERTS_COLLECTION)
+            .find({"pc_id": pc_id, "category": "anomaly"})
+            .sort("timestamp", DESCENDING)
+            .limit(20)
+        )
+
+        return {
+            "pc_id":            pc_id,
+            "risk_score":       summary.get("risk_score", 0),
+            "anomaly_score":    summary.get("anomaly_score", 0),
+            "is_anomaly":       summary.get("is_anomaly", False),
+            "detection_method": summary.get("detection_method", "unknown"),
+            "samples_analysed": summary.get("samples_analysed", 0),
+            "recent_anomalies": [serialize_doc(a) for a in recent_anomalies],
+        }
+    else:
+        import random
+        risk = random.randint(10, 70)
+        return {
+            "pc_id":            pc_id,
+            "risk_score":       risk,
+            "anomaly_score":    risk,
+            "is_anomaly":       risk > 50,
+            "detection_method": "demo",
+            "samples_analysed": random.randint(20, 100),
+            "recent_anomalies": [],
+        }
+
+
+@app.get("/api/ml/status")
+def get_ml_status():
+    """Get ML model training status and metadata."""
+    import json as _json
+
+    model_dir = os.getenv("MODEL_DIR", os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "models"
+    ))
+    meta_path = os.path.join(model_dir, "model_metadata.json")
+
+    if os.path.exists(meta_path):
+        with open(meta_path) as f:
+            metadata = _json.load(f)
+        return {
+            "model_available": True,
+            "trained_at":      metadata.get("trained_at_iso"),
+            "total_samples":   metadata.get("total_samples"),
+            "unique_pcs":      metadata.get("unique_pcs"),
+            "contamination":   metadata.get("contamination"),
+            "n_estimators":    metadata.get("n_estimators"),
+            "features":        metadata.get("features"),
+            "score_stats": {
+                "mean": metadata.get("score_mean"),
+                "std":  metadata.get("score_std"),
+                "min":  metadata.get("score_min"),
+                "max":  metadata.get("score_max"),
+            },
+        }
+    else:
+        return {
+            "model_available": False,
+            "message": "No trained model found. The analyser will auto-train when enough data is collected (50+ log entries).",
+        }
 
 
 # ─── Health check ─────────────────────────────────────────────────────────────
@@ -641,9 +796,17 @@ def health():
         mongo_ok = True
     except Exception:
         pass
+
+    # Check if ML model is available
+    model_dir = os.getenv("MODEL_DIR", os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "models"
+    ))
+    ml_ready = os.path.exists(os.path.join(model_dir, "anomaly_model.pkl"))
+
     return {
         "status":    "ok" if mongo_ok else "degraded",
         "mongo":     mongo_ok,
+        "ml_ready":  ml_ready,
         "real_data": has_real_data(),
         "timestamp": time.time(),
     }

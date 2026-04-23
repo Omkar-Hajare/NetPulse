@@ -1,0 +1,37 @@
+# ─────────────────────────────────────────────────────────────────────
+# NetPulse — Prometheus Scrape Configuration
+#
+# Scrapes metrics from exporters that monitor your manually-run pipeline.
+# host.docker.internal = your Windows host where Kafka/MongoDB/API run.
+# ─────────────────────────────────────────────────────────────────────
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # ── MongoDB Exporter ──────────────────────────────────────────────
+  - job_name: "mongodb"
+    static_configs:
+      - targets: ["mongodb-exporter:9216"]
+        labels:
+          service: "mongodb"
+
+  # ── Kafka Exporter ────────────────────────────────────────────────
+  - job_name: "kafka"
+    static_configs:
+      - targets: ["kafka-exporter:9308"]
+        labels:
+          service: "kafka"
+
+  # ── Container metrics (cAdvisor) ──────────────────────────────────
+  - job_name: "cadvisor"
+    static_configs:
+      - targets: ["cadvisor:8080"]
+        labels:
+          service: "containers"
+
+  # ── Prometheus self-monitoring ────────────────────────────────────
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]

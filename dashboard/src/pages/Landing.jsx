@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Sphere, Line, Stars } from '@react-three/drei';
@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import '../landing.css';
 import { auth } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { useAuthState } from '../hooks/useAuthState';
 
 // ─── 3D Network Globe Component ──────────────────────────────────────────
 function NetworkGlobe() {
@@ -75,6 +76,7 @@ function NetworkGlobe() {
 // ─── Main Landing Page Component ─────────────────────────────────────────
 export default function Landing() {
   const navigate = useNavigate();
+  const { user: currentUser, loading } = useAuthState();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -82,14 +84,21 @@ export default function Landing() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Redirect already-authenticated users to dashboard
+  useEffect(() => {
+    if (!loading && currentUser) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [currentUser, loading, navigate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     try {
       if (isLogin) {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const displayName = userCredential.user.displayName || email;
-        navigate('/dashboard', { state: { user: displayName } });
+        await signInWithEmailAndPassword(auth, email, password);
+        // Firebase onAuthStateChanged will handle state — navigate without location.state
+        navigate('/dashboard');
       } else {
         if (password !== confirmPassword) {
           setErrorMsg("Passwords do not match");
@@ -99,7 +108,8 @@ export default function Landing() {
         await updateProfile(userCredential.user, {
           displayName: username || email
         });
-        navigate('/dashboard', { state: { user: username || email } });
+        // Firebase onAuthStateChanged will handle state — navigate without location.state
+        navigate('/dashboard');
       }
     } catch (error) {
       setErrorMsg(error.message);

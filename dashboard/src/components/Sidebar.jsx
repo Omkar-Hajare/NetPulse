@@ -1,6 +1,8 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 
 export default function Sidebar() {
+  const location = useLocation()
+
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
@@ -15,7 +17,7 @@ export default function Sidebar() {
         </NavLink>
 
         <NavLink to="/dashboard/pc" className={({ isActive }) =>
-          `nav-item ${isActive || window.location.pathname.startsWith('/dashboard/pc/') ? 'active' : ''}`
+          `nav-item ${isActive || location.pathname.startsWith('/dashboard/pc/') ? 'active' : ''}`
         }>
           <span className="nav-icon">🖥️</span>
           <span>PC Detail</span>
@@ -40,3 +42,4 @@ export default function Sidebar() {
     </aside>
   )
 }
+

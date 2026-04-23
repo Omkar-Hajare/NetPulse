@@ -10,18 +10,14 @@ from kafka.errors import KafkaError
 from pymongo import MongoClient, errors as mongo_errors
 from pymongo import UpdateOne
 
-# ─── Configuration ────────────────────────────────────────────────────────────
-
-KAFKA_BROKER    = os.getenv("KAFKA_BROKER", "localhost:9092")
-KAFKA_TOPIC     = os.getenv("KAFKA_TOPIC", "network-logs")
-KAFKA_GROUP_ID  = os.getenv("KAFKA_GROUP_ID", "netpulse-consumer-group")
-MONGO_URI       = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
-MONGO_DB        = os.getenv("MONGO_DB", "netpulse")
-MONGO_COLLECTION = os.getenv("MONGO_COLLECTION", "network_logs")
-
-BATCH_SIZE      = int(os.getenv("BATCH_SIZE", "50"))     # flush after N messages
-BATCH_TIMEOUT   = float(os.getenv("BATCH_TIMEOUT", "5")) # or after N seconds
-LOG_FILE        = os.getenv("LOG_FILE", "netpulse_consumer.log")
+# ─── Configuration (imported from central config) ────────────────────────────
+from config import (
+    KAFKA_BROKER, KAFKA_TOPIC, KAFKA_GROUP_ID,
+    MONGO_URI, MONGO_DB, LOGS_COLLECTION,
+    BATCH_SIZE, BATCH_TIMEOUT,
+)
+MONGO_COLLECTION = LOGS_COLLECTION   # alias used in this file
+LOG_FILE         = os.getenv("LOG_FILE", "netpulse_consumer.log")
 
 # ─── Logging setup ────────────────────────────────────────────────────────────
 

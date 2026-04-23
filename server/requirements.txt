@@ -1,6 +1,9 @@
 kafka-python
 pymongo
 scikit-learn
+pandas
+numpy
+joblib
 prometheus_client
 fastapi
 uvicorn[standard]
