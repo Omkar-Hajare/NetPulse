@@ -1,11 +1,10 @@
-# NetPulse 🚀
+NetPulse 🚀
 
 **Real-Time Network Monitoring and Security Analytics Platform**
 
 NetPulse is a distributed monitoring system that collects, streams, analyzes, and visualizes system and network activity across multiple computers in real time.
 It features **ML-based anomaly detection** using Isolation Forest to automatically identify suspicious network behavior.
 
----
 
 # 📌 Project Overview
 
